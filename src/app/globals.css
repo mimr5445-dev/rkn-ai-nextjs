@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --app-width: 100dvw;
+  --app-height: 100dvh;
+  --header-height: 56px;
+  --sidebar-width: 280px;
+  --background: 238 45% 6%;
+  --foreground: 220 32% 96%;
+  --card: 235 32% 10%;
+  --card-foreground: 220 32% 96%;
+  --primary: 246 88% 67%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 219 30% 18%;
+  --secondary-foreground: 220 32% 96%;
+  --muted: 226 28% 16%;
+  --muted-foreground: 224 16% 70%;
+  --accent: 190 95% 48%;
+  --accent-foreground: 224 56% 8%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 226 22% 22%;
+  --input: 226 22% 22%;
+  --ring: 246 88% 67%;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#app-root {
+  width: 100dvw;
+  height: 100dvh;
+  min-width: 100dvw;
+  min-height: 100dvh;
+  max-width: 100dvw;
+  max-height: 100dvh;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  position: fixed;
+  inset: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  user-select: none;
+}
+
+textarea,
+input {
+  font-size: 16px;
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+
+.app-safe-area {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.035));
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 20px 80px rgb(0 0 0 / 0.3);
+  backdrop-filter: blur(22px);
+}
+
+.message-markdown {
+  line-height: 1.9;
+  word-break: break-word;
+}
+
+.message-markdown p,
+.message-markdown ul,
+.message-markdown ol,
+.message-markdown pre,
+.message-markdown blockquote {
+  margin: 0.65rem 0;
+}
+
+.message-markdown p:first-child,
+.message-markdown ul:first-child,
+.message-markdown ol:first-child,
+.message-markdown pre:first-child,
+.message-markdown blockquote:first-child {
+  margin-top: 0;
+}
+
+.message-markdown p:last-child,
+.message-markdown ul:last-child,
+.message-markdown ol:last-child,
+.message-markdown pre:last-child,
+.message-markdown blockquote:last-child {
+  margin-bottom: 0;
+}
+
+.message-markdown ul,
+.message-markdown ol {
+  padding-right: 1.25rem;
+}
+
+.message-markdown code:not(pre code) {
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 0.26);
+  padding: 0.15rem 0.35rem;
+  direction: ltr;
+  display: inline-block;
+}
+
+.message-markdown pre {
+  direction: ltr;
+  text-align: left;
+  border-radius: 1rem;
+  overflow: auto;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: #090b18 !important;
+}
+
+.message-markdown a {
+  color: hsl(var(--accent));
+  text-decoration: underline;
+}
+
+.message-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.message-markdown th,
+.message-markdown td {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  padding: 0.55rem;
+}
+
+.message-markdown blockquote {
+  border-right: 3px solid hsl(var(--primary));
+  padding-right: 0.9rem;
+  color: hsl(var(--muted-foreground));
+}
+
+@media (max-width: 767px) {
+  :root {
+    --sidebar-width: min(84vw, 320px);
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+}
