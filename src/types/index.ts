@@ -42,6 +42,7 @@ export type ChatRequest = {
   conversationId?: string;
   agentId?: AgentId;
   temperature?: number;
+  stream?: boolean;
 };
 
 export type ChatResponse = {
