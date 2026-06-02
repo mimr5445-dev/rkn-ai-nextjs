@@ -95,6 +95,7 @@ export const useChatStore = create<ChatState>()(
           createdAt: message.createdAt ?? now(),
           role: message.role,
           content: message.content,
+          attachments: message.attachments,
           pending: message.pending,
           error: message.error
         };
@@ -103,7 +104,10 @@ export const useChatStore = create<ChatState>()(
           const targetId = conversationId || ensureConversation(mutableState);
           const updated = mutableState.conversations.map((conversation) => {
             if (conversation.id !== targetId) return conversation;
-            const title = conversation.messages.length === 0 && created.role === 'user' ? makeTitle(created.content) : conversation.title;
+            const title =
+              conversation.messages.length === 0 && created.role === 'user'
+                ? makeTitle(created.content || 'مرفقات جديدة')
+                : conversation.title;
             return {
               ...conversation,
               title,

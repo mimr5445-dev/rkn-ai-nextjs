@@ -1,10 +1,22 @@
 export type Role = 'user' | 'assistant' | 'system';
 
+export type AttachmentKind = 'image' | 'file';
+
+export type Attachment = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  data: string;
+  kind: AttachmentKind;
+};
+
 export type Message = {
   id: string;
   role: Role;
   content: string;
   createdAt: string;
+  attachments?: Attachment[];
   pending?: boolean;
   error?: boolean;
 };
@@ -37,8 +49,10 @@ export type DeviceMetrics = {
   isMobile: boolean;
 };
 
+export type ChatRequestMessage = Pick<Message, 'role' | 'content' | 'attachments'>;
+
 export type ChatRequest = {
-  messages: Pick<Message, 'role' | 'content'>[];
+  messages: ChatRequestMessage[];
   conversationId?: string;
   agentId?: AgentId;
   temperature?: number;

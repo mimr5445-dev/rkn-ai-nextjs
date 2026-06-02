@@ -9,7 +9,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { SettingsDialog } from '@/components/ui/SettingsDialog';
 import { lockViewport, readDeviceMetrics } from '@/lib/device';
 import { useChatStore } from '@/store/chat-store';
-import type { ChatResponse } from '@/types';
+import type { Attachment, ChatResponse } from '@/types';
 
 export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -59,13 +59,13 @@ export function AppShell() {
     toast.success('تم إنشاء محادثة جديدة');
   };
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, attachments: Attachment[] = []) => {
     if (isLoading) return;
 
     const targetConversationId = activeConversationId ?? createConversation();
     const baseMessages = conversations.find((conversation) => conversation.id === targetConversationId)?.messages ?? [];
 
-    addMessage(targetConversationId, { role: 'user', content: text });
+    addMessage(targetConversationId, { role: 'user', content: text, attachments });
     const assistantMessage = addMessage(targetConversationId, {
       role: 'assistant',
       content: '',
@@ -82,7 +82,10 @@ export function AppShell() {
           conversationId: targetConversationId,
           agentId: activeAgentId,
           temperature,
-          messages: [...baseMessages.map(({ role, content }) => ({ role, content })), { role: 'user', content: text }]
+          messages: [
+            ...baseMessages.map(({ role, content, attachments }) => ({ role, content, attachments })),
+            { role: 'user', content: text, attachments }
+          ]
         })
       });
 

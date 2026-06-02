@@ -19,17 +19,19 @@ export function SettingsDialog({ open, onOpenChange, onClearAll, deviceMetrics, 
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[70] bg-black/65 backdrop-blur-sm" />
-        <Dialog.Content asChild>
+        <Dialog.Content className="fixed inset-0 z-[80] grid place-items-center overflow-hidden p-3 outline-none sm:p-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="fixed left-1/2 top-1/2 z-[80] max-h-[min(680px,86dvh)] w-[min(94vw,520px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[2rem] border border-white/10 bg-[#090b1b] p-0 text-white shadow-soft"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+            className="flex max-h-[calc(100dvh-24px)] w-[min(94vw,520px)] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-[#090b1b] p-0 text-white shadow-soft sm:max-h-[min(680px,86dvh)]"
             dir="rtl"
           >
-            <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
-              <div>
-                <Dialog.Title className="text-base font-black">إعدادات RKN.AI</Dialog.Title>
-                <Dialog.Description className="text-xs text-muted-foreground">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-4">
+              <div className="min-w-0">
+                <Dialog.Title className="truncate text-base font-black">إعدادات RKN.AI</Dialog.Title>
+                <Dialog.Description className="truncate text-xs text-muted-foreground">
                   معلومات الجهاز، الخصوصية، وإدارة التخزين المحلي.
                 </Dialog.Description>
               </div>
@@ -40,7 +42,7 @@ export function SettingsDialog({ open, onOpenChange, onClearAll, deviceMetrics, 
               </Dialog.Close>
             </div>
 
-            <div className="space-y-3 p-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-4">
                 <div className="mb-3 flex items-center gap-2 font-bold">
                   <Info className="h-5 w-5 text-cyan-300" />

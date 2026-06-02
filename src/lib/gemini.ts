@@ -1,18 +1,19 @@
 import { getAgent } from '@/lib/agents';
-import type { AgentId, Message } from '@/types';
+import type { AgentId, ChatRequestMessage } from '@/types';
 
 const MODEL = 'gemini-2.5-flash';
 const MODEL_PATH = MODEL.startsWith('models/') ? MODEL : `models/${MODEL}`;
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/${MODEL_PATH}:generateContent`;
 const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/${MODEL_PATH}:streamGenerateContent`;
 
-type GeminiPart = { text: string };
+type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+type GeminiTextPart = { text: string };
 type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] };
 
 type GeminiGenerateResponse = {
   candidates?: Array<{
     content?: {
-      parts?: GeminiPart[];
+      parts?: GeminiTextPart[];
     };
     finishReason?: string;
   }>;
@@ -50,13 +51,34 @@ function requireApiKey() {
   return apiKey;
 }
 
-function toGeminiContents(messages: Pick<Message, 'role' | 'content'>[]): GeminiContent[] {
+function toGeminiContents(messages: ChatRequestMessage[]): GeminiContent[] {
   return messages
-    .filter((message) => message.role !== 'system' && message.content.trim())
-    .map((message) => ({
-      role: message.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: message.content }]
-    }));
+    .filter((message) =>
+      message.role !== 'system' && (message.content.trim() || (message.attachments?.length ?? 0) > 0)
+    )
+    .map((message) => {
+      const parts: GeminiPart[] = [];
+      const text = message.content.trim();
+
+      if (text) {
+        parts.push({ text });
+      }
+
+      for (const attachment of message.attachments ?? []) {
+        if (!attachment.data || !attachment.mimeType) continue;
+        parts.push({
+          inlineData: {
+            mimeType: attachment.mimeType,
+            data: attachment.data
+          }
+        });
+      }
+
+      return {
+        role: message.role === 'assistant' ? 'model' : 'user',
+        parts
+      };
+    });
 }
 
 function buildRequestBody({
@@ -64,7 +86,7 @@ function buildRequestBody({
   agentId,
   temperature
 }: {
-  messages: Pick<Message, 'role' | 'content'>[];
+  messages: ChatRequestMessage[];
   agentId?: AgentId;
   temperature: number;
 }) {
@@ -72,7 +94,7 @@ function buildRequestBody({
   const contents = toGeminiContents(messages);
 
   if (contents.length === 0) {
-    throw new Error('No valid user message was provided.');
+    throw new Error('No valid user message or attachment was provided.');
   }
 
   return {
@@ -118,7 +140,7 @@ export async function generateChatResponse({
   agentId,
   temperature = 0.7
 }: {
-  messages: Pick<Message, 'role' | 'content'>[];
+  messages: ChatRequestMessage[];
   agentId?: AgentId;
   temperature?: number;
 }) {
@@ -166,7 +188,7 @@ export async function createGeminiStream({
   agentId,
   temperature = 0.7
 }: {
-  messages: Pick<Message, 'role' | 'content'>[];
+  messages: ChatRequestMessage[];
   agentId?: AgentId;
   temperature?: number;
 }) {

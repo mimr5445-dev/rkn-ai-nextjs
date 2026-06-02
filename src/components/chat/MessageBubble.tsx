@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Copy, Sparkles, UserRound } from 'lucide-react';
+import { Check, Copy, FileText, Sparkles, UserRound } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,11 +8,55 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import type { Message } from '@/types';
+import type { Attachment, Message } from '@/types';
+
+function formatSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function AttachmentPreview({ attachment, isUser }: { attachment: Attachment; isUser: boolean }) {
+  if (attachment.kind === 'image') {
+    return (
+      <a
+        href={`data:${attachment.mimeType};base64,${attachment.data}`}
+        target="_blank"
+        rel="noreferrer"
+        className="block overflow-hidden rounded-2xl border border-white/10 bg-black/20"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`data:${attachment.mimeType};base64,${attachment.data}`}
+          alt={attachment.name}
+          className="max-h-72 w-full object-cover"
+        />
+        <div className={cn('truncate px-3 py-2 text-xs', isUser ? 'text-white/85' : 'text-muted-foreground')}>
+          {attachment.name} · {formatSize(attachment.size)}
+        </div>
+      </a>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/20 text-primary">
+        <FileText className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-bold">{attachment.name}</div>
+        <div className={cn('text-xs', isUser ? 'text-white/75' : 'text-muted-foreground')} dir="ltr">
+          {attachment.mimeType || 'file'} · {formatSize(attachment.size)}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const hasAttachments = (message.attachments?.length ?? 0) > 0;
 
   const copy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -56,7 +100,16 @@ export function MessageBubble({ message }: { message: Message }) {
               RKN.AI يفكر الآن...
             </div>
           ) : isUser ? (
-            <div className="whitespace-pre-wrap leading-8">{message.content}</div>
+            <div className="space-y-3">
+              {hasAttachments && (
+                <div className="grid gap-2">
+                  {message.attachments?.map((attachment) => (
+                    <AttachmentPreview key={attachment.id} attachment={attachment} isUser={isUser} />
+                  ))}
+                </div>
+              )}
+              {message.content && <div className="whitespace-pre-wrap leading-8">{message.content}</div>}
+            </div>
           ) : (
             <div className="message-markdown">
               <ReactMarkdown
@@ -97,7 +150,7 @@ export function MessageBubble({ message }: { message: Message }) {
 
         <div className={cn('mt-1 flex items-center gap-2 px-2 text-[11px] text-muted-foreground', isUser ? 'justify-end' : 'justify-start')}>
           <span>{new Date(message.createdAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</span>
-          {!message.pending && (
+          {!message.pending && message.content && (
             <button type="button" onClick={copy} className="inline-flex items-center gap-1 hover:text-white">
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? 'نُسخ' : 'نسخ'}
