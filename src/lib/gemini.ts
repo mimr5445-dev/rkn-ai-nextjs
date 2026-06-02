@@ -1,9 +1,9 @@
 import { getAgent } from '@/lib/agents';
 import type { AgentId, Message } from '@/types';
 
-const MODEL = 'gemini-1.5-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
-const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent`;
+const MODEL = 'models/gemini-1.5-flash-latest';
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/${MODEL}:generateContent`;
+const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/${MODEL}:streamGenerateContent`;
 
 type GeminiPart = { text: string };
 type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] };
