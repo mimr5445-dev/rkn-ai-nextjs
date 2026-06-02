@@ -13,6 +13,7 @@ import type { Attachment, ChatResponse } from '@/types';
 
 export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modelName, setModelName] = useState('gemini-1.5-flash'); // Added modelName state
 
   const conversations = useChatStore((state) => state.conversations);
   const activeConversationId = useChatStore((state) => state.activeConversationId);
@@ -81,6 +82,7 @@ export function AppShell() {
         body: JSON.stringify({
           conversationId: targetConversationId,
           agentId: activeAgentId,
+          modelName, // Added modelName to the payload
           temperature,
           messages: [
             ...baseMessages.map(({ role, content, attachments }) => ({ role, content, attachments })),
@@ -143,7 +145,19 @@ export function AppShell() {
           onNewChat={startNewChat}
           onOpenSettings={() => setSettingsOpen(true)}
           deviceMetrics={deviceMetrics}
-        />
+        >
+          <div className="p-4">
+            <select
+              value={modelName}
+              onChange={(e) => setModelName(e.target.value)}
+              className="p-2 border rounded-md bg-white shadow-sm"
+            >
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+            </select>
+          </div>
+        </Header>
 
         <div className="flex min-h-0 overflow-hidden" dir="ltr">
           <Sidebar
