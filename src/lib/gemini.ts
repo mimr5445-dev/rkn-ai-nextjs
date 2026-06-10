@@ -1,225 +1,167 @@
 import { getAgent } from '@/lib/agents';
-import type { AgentId, ChatRequestMessage } from '@/types';
+import type { AgentId, ChatRequestMessage, GeminiModel } from '@/types';
 
-const MODEL = 'gemini-2.5-flash';
-const MODEL_PATH = MODEL.startsWith('models/') ? MODEL : `models/${MODEL}`;
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/${MODEL_PATH}:generateContent`;
-const GEMINI_STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/${MODEL_PATH}:streamGenerateContent`;
+const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
+export const DEFAULT_MODEL: GeminiModel = 'gemini-2.5-flash';
 
 type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
-type GeminiTextPart = { text: string };
 type GeminiContent = { role: 'user' | 'model'; parts: GeminiPart[] };
 
-type GeminiGenerateResponse = {
-  candidates?: Array<{
-    content?: {
-      parts?: GeminiTextPart[];
-    };
-    finishReason?: string;
-  }>;
-  promptFeedback?: {
-    blockReason?: string;
-  };
+type GeminiResponse = {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
+  promptFeedback?: { blockReason?: string };
   usageMetadata?: unknown;
 };
 
-type GeminiErrorResponse = {
-  error?: {
-    code?: number;
-    message?: string;
-    status?: string;
-    details?: unknown[];
-  };
-};
+type GeminiError = { error?: { code?: number; message?: string; status?: string } };
 
 function requireApiKey() {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
-
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
     throw new Error('GEMINI_API_KEY is missing. Add it to .env.local or Vercel Environment Variables.');
   }
-
-  // Google AI Studio / Gemini Developer API keys are standard Google API keys.
-  // OAuth access tokens, GitHub tokens, service-account JSON, or values prefixed with "Bearer"
-  // cause ACCESS_TOKEN_TYPE_UNSUPPORTED / 401 errors on the Gemini Developer endpoint.
   if (/^(Bearer\s+|ya29\.|ghp_|github_pat_|\{)/i.test(apiKey)) {
-    throw new Error(
-      'GEMINI_API_KEY must be a Google AI Studio Gemini API key, not an OAuth token, GitHub token, or service-account JSON.'
-    );
+    throw new Error('GEMINI_API_KEY must be a Google AI Studio key, not an OAuth/GitHub token or service-account JSON.');
   }
-
   return apiKey;
 }
 
-function toGeminiContents(messages: ChatRequestMessage[]): GeminiContent[] {
+function modelPath(model: string) {
+  return model.startsWith('models/') ? model : `models/${model}`;
+}
+
+function endpointUrl(model: string, method: 'generateContent' | 'streamGenerateContent', apiKey: string, sse = false) {
+  const url = new URL(`${API_ROOT}/${modelPath(model)}:${method}`);
+  url.searchParams.set('key', apiKey);
+  if (sse) url.searchParams.set('alt', 'sse');
+  return url.toString();
+}
+
+function toContents(messages: ChatRequestMessage[]): GeminiContent[] {
   return messages
-    .filter((message) =>
-      message.role !== 'system' && (message.content.trim() || (message.attachments?.length ?? 0) > 0)
-    )
-    .map((message) => {
+    .filter((m) => m.content.trim() || (m.attachments?.length ?? 0) > 0)
+    .map((m) => {
       const parts: GeminiPart[] = [];
-      const text = message.content.trim();
-
-      if (text) {
-        parts.push({ text });
-      }
-
-      for (const attachment of message.attachments ?? []) {
+      const text = m.content.trim();
+      if (text) parts.push({ text });
+      for (const attachment of m.attachments ?? []) {
         if (!attachment.data || !attachment.mimeType) continue;
-        parts.push({
-          inlineData: {
-            mimeType: attachment.mimeType,
-            data: attachment.data
-          }
-        });
+        parts.push({ inlineData: { mimeType: attachment.mimeType, data: attachment.data } });
       }
-
-      return {
-        role: message.role === 'assistant' ? 'model' : 'user',
-        parts
-      };
+      return { role: m.role === 'assistant' ? 'model' : 'user', parts } as GeminiContent;
     });
 }
 
-function buildRequestBody({
-  messages,
-  agentId,
-  temperature
-}: {
-  messages: ChatRequestMessage[];
-  agentId?: AgentId;
-  temperature: number;
-}) {
+function buildBody(messages: ChatRequestMessage[], agentId: AgentId | undefined, temperature: number) {
   const agent = getAgent(agentId);
-  const contents = toGeminiContents(messages);
-
-  if (contents.length === 0) {
-    throw new Error('No valid user message or attachment was provided.');
-  }
-
+  const contents = toContents(messages);
+  if (contents.length === 0) throw new Error('No valid user message or attachment was provided.');
   return {
-    systemInstruction: {
-      parts: [{ text: agent.systemPrompt }]
-    },
+    systemInstruction: { parts: [{ text: agent.systemPrompt }] },
     contents,
-    generationConfig: {
-      temperature,
-      topP: 0.95,
-      topK: 40,
-      maxOutputTokens: 8192
-    },
+    generationConfig: { temperature, topP: 0.95, topK: 40, maxOutputTokens: 8192 },
     safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' }
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' }
     ]
   };
 }
 
-function buildGeminiUrl(endpoint: string, apiKey: string) {
-  const url = new URL(endpoint);
-  // Strictly authenticate with a standard Gemini Developer API key.
-  // No Authorization/Bearer headers are sent from this app.
-  url.searchParams.set('key', apiKey);
-  return url.toString();
-}
-
-function summarizeGeminiError(status: number, payload: GeminiErrorResponse | string) {
-  if (typeof payload === 'string') {
-    return `Gemini API request failed with HTTP ${status}: ${payload}`;
-  }
-
-  const message = payload.error?.message ?? `Gemini API request failed with HTTP ${status}.`;
+function summarizeError(status: number, payload: GeminiError | string) {
+  if (typeof payload === 'string') return `Gemini HTTP ${status}: ${payload}`;
+  const message = payload.error?.message ?? `Gemini HTTP ${status}.`;
   const reason = payload.error?.status ? ` (${payload.error.status})` : '';
   return `${message}${reason}`;
 }
 
-export async function generateChatResponse({
-  messages,
-  agentId,
-  temperature = 0.7
-}: {
+export type GenerateArgs = {
   messages: ChatRequestMessage[];
   agentId?: AgentId;
+  model?: GeminiModel;
   temperature?: number;
-}) {
-  const apiKey = requireApiKey();
-  const body = buildRequestBody({ messages, agentId, temperature });
+};
 
-  const response = await fetch(buildGeminiUrl(GEMINI_ENDPOINT, apiKey), {
+export async function generateChatResponse({ messages, agentId, model = DEFAULT_MODEL, temperature = 0.7 }: GenerateArgs) {
+  const apiKey = requireApiKey();
+  const response = await fetch(endpointUrl(model, 'generateContent', apiKey), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildBody(messages, agentId, temperature)),
     cache: 'no-store'
   });
 
-  const rawText = await response.text();
-  let data: GeminiGenerateResponse & GeminiErrorResponse;
-
+  const raw = await response.text();
+  let data: GeminiResponse & GeminiError;
   try {
-    data = rawText ? (JSON.parse(rawText) as GeminiGenerateResponse & GeminiErrorResponse) : {};
+    data = raw ? (JSON.parse(raw) as GeminiResponse & GeminiError) : {};
   } catch {
-    data = { error: { message: rawText } };
+    data = { error: { message: raw } };
   }
+  if (!response.ok) throw new Error(summarizeError(response.status, data));
 
-  if (!response.ok) {
-    throw new Error(summarizeGeminiError(response.status, data));
-  }
-
-  const message = data.candidates?.[0]?.content?.parts?.map((part) => part.text).join('\n').trim();
-
+  const message = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('').trim();
   if (!message) {
-    const blockReason = data.promptFeedback?.blockReason;
-    throw new Error(blockReason ? `Gemini blocked the response: ${blockReason}` : 'Gemini returned an empty response.');
+    const blocked = data.promptFeedback?.blockReason;
+    throw new Error(blocked ? `Gemini blocked the response: ${blocked}` : 'Gemini returned an empty response.');
   }
-
-  return {
-    message,
-    model: MODEL,
-    usage: data.usageMetadata ?? null
-  };
+  return { message, model, usage: data.usageMetadata ?? null };
 }
 
-export async function createGeminiStream({
-  messages,
-  agentId,
-  temperature = 0.7
-}: {
-  messages: ChatRequestMessage[];
-  agentId?: AgentId;
-  temperature?: number;
-}) {
+export async function createChatStream({ messages, agentId, model = DEFAULT_MODEL, temperature = 0.7 }: GenerateArgs) {
   const apiKey = requireApiKey();
-  const body = buildRequestBody({ messages, agentId, temperature });
-  const url = new URL(buildGeminiUrl(GEMINI_STREAM_ENDPOINT, apiKey));
-  url.searchParams.set('alt', 'sse');
-
-  const response = await fetch(url.toString(), {
+  const response = await fetch(endpointUrl(model, 'streamGenerateContent', apiKey, true), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildBody(messages, agentId, temperature)),
     cache: 'no-store'
   });
 
-  if (!response.ok) {
+  if (!response.ok || !response.body) {
     const errorText = await response.text();
-    let payload: GeminiErrorResponse | string = errorText;
+    let payload: GeminiError | string = errorText;
     try {
-      payload = JSON.parse(errorText) as GeminiErrorResponse;
+      payload = JSON.parse(errorText) as GeminiError;
     } catch {
-      // Keep plain-text error.
+      // Keep plain text.
     }
-    throw new Error(summarizeGeminiError(response.status, payload));
+    throw new Error(summarizeError(response.status, payload));
   }
 
-  if (!response.body) {
-    throw new Error('Gemini stream response body is empty.');
-  }
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  const reader = response.body.getReader();
+  let buffer = '';
 
-  return response.body;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        return;
+      }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const json = trimmed.slice(5).trim();
+        if (!json || json === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(json) as GeminiResponse;
+          const text = parsed.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
+          if (text) controller.enqueue(encoder.encode(text));
+        } catch {
+          // Ignore malformed SSE chunks.
+        }
+      }
+    },
+    cancel() {
+      reader.cancel().catch(() => undefined);
+    }
+  });
 }

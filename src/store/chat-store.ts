@@ -4,65 +4,58 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { v4 as uuid } from 'uuid';
 import { makeTitle } from '@/lib/utils';
-import type { AgentId, Conversation, DeviceMetrics, Message } from '@/types';
+import type { AgentId, Conversation, GeminiModel, Message } from '@/types';
 
 type ChatState = {
   conversations: Conversation[];
   activeConversationId: string | null;
   activeAgentId: AgentId;
+  model: GeminiModel;
   temperature: number;
   sidebarOpen: boolean;
   isLoading: boolean;
-  deviceMetrics: DeviceMetrics | null;
   createConversation: () => string;
   deleteConversation: (id: string) => void;
   setActiveConversation: (id: string) => void;
-  updateConversationTitle: (id: string, title: string) => void;
   addMessage: (conversationId: string, message: Omit<Message, 'id' | 'createdAt'> & Partial<Pick<Message, 'id' | 'createdAt'>>) => Message;
   updateMessage: (conversationId: string, messageId: string, patch: Partial<Message>) => void;
+  appendToMessage: (conversationId: string, messageId: string, delta: string) => void;
   clearAll: () => void;
   setActiveAgent: (agentId: AgentId) => void;
+  setModel: (model: GeminiModel) => void;
   setTemperature: (temperature: number) => void;
   setSidebarOpen: (open: boolean) => void;
   setIsLoading: (loading: boolean) => void;
-  setDeviceMetrics: (metrics: DeviceMetrics) => void;
 };
 
-function now() {
-  return new Date().toISOString();
-}
+const now = () => new Date().toISOString();
 
 function newConversation(): Conversation {
   const timestamp = now();
-  return {
-    id: uuid(),
-    title: 'محادثة جديدة',
-    messages: [],
-    createdAt: timestamp,
-    updatedAt: timestamp
-  };
+  return { id: uuid(), title: 'محادثة جديدة', messages: [], createdAt: timestamp, updatedAt: timestamp };
 }
 
-function ensureConversation(state: ChatState) {
-  if (state.activeConversationId && state.conversations.some((item) => item.id === state.activeConversationId)) {
-    return state.activeConversationId;
-  }
-  const conversation = newConversation();
-  state.conversations.unshift(conversation);
-  state.activeConversationId = conversation.id;
-  return conversation.id;
+function stripHeavyData(conversations: Conversation[]): Conversation[] {
+  return conversations.map((conversation) => ({
+    ...conversation,
+    messages: conversation.messages.map((message) =>
+      message.attachments?.length
+        ? { ...message, attachments: message.attachments.map((attachment) => ({ ...attachment, data: '' })) }
+        : message
+    )
+  }));
 }
 
 export const useChatStore = create<ChatState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       conversations: [],
       activeConversationId: null,
       activeAgentId: 'general',
+      model: 'gemini-2.5-flash',
       temperature: 0.7,
       sidebarOpen: false,
       isLoading: false,
-      deviceMetrics: null,
       createConversation: () => {
         const conversation = newConversation();
         set((state) => ({
@@ -72,23 +65,13 @@ export const useChatStore = create<ChatState>()(
         }));
         return conversation.id;
       },
-      deleteConversation: (id) => {
+      deleteConversation: (id) =>
         set((state) => {
           const filtered = state.conversations.filter((conversation) => conversation.id !== id);
           const nextActive = state.activeConversationId === id ? filtered[0]?.id ?? null : state.activeConversationId;
           return { conversations: filtered, activeConversationId: nextActive };
-        });
-      },
+        }),
       setActiveConversation: (id) => set({ activeConversationId: id, sidebarOpen: false }),
-      updateConversationTitle: (id, title) => {
-        set((state) => ({
-          conversations: state.conversations.map((conversation) =>
-            conversation.id === id
-              ? { ...conversation, title: title.trim() || 'محادثة جديدة', updatedAt: now() }
-              : conversation
-          )
-        }));
-      },
       addMessage: (conversationId, message) => {
         const created: Message = {
           id: message.id ?? uuid(),
@@ -99,27 +82,19 @@ export const useChatStore = create<ChatState>()(
           pending: message.pending,
           error: message.error
         };
-        set((state) => {
-          const mutableState = { ...state, conversations: [...state.conversations] } as ChatState;
-          const targetId = conversationId || ensureConversation(mutableState);
-          const updated = mutableState.conversations.map((conversation) => {
-            if (conversation.id !== targetId) return conversation;
+        set((state) => ({
+          conversations: state.conversations.map((conversation) => {
+            if (conversation.id !== conversationId) return conversation;
             const title =
               conversation.messages.length === 0 && created.role === 'user'
                 ? makeTitle(created.content || 'مرفقات جديدة')
                 : conversation.title;
-            return {
-              ...conversation,
-              title,
-              messages: [...conversation.messages, created],
-              updatedAt: now()
-            };
-          });
-          return { conversations: updated, activeConversationId: targetId };
-        });
+            return { ...conversation, title, messages: [...conversation.messages, created], updatedAt: now() };
+          })
+        }));
         return created;
       },
-      updateMessage: (conversationId, messageId, patch) => {
+      updateMessage: (conversationId, messageId, patch) =>
         set((state) => ({
           conversations: state.conversations.map((conversation) =>
             conversation.id === conversationId
@@ -132,28 +107,38 @@ export const useChatStore = create<ChatState>()(
                 }
               : conversation
           )
-        }));
-      },
+        })),
+      appendToMessage: (conversationId, messageId, delta) =>
+        set((state) => ({
+          conversations: state.conversations.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === messageId ? { ...message, content: message.content + delta, pending: false } : message
+                  ),
+                  updatedAt: now()
+                }
+              : conversation
+          )
+        })),
       clearAll: () => set({ conversations: [], activeConversationId: null, sidebarOpen: false }),
       setActiveAgent: (agentId) => set({ activeAgentId: agentId }),
+      setModel: (model) => set({ model }),
       setTemperature: (temperature) => set({ temperature }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
-      setIsLoading: (loading) => set({ isLoading: loading }),
-      setDeviceMetrics: (metrics) => set({ deviceMetrics: metrics })
+      setIsLoading: (loading) => set({ isLoading: loading })
     }),
     {
       name: 'rkn-ai-chat-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        conversations: state.conversations,
+        conversations: stripHeavyData(state.conversations),
         activeConversationId: state.activeConversationId,
         activeAgentId: state.activeAgentId,
+        model: state.model,
         temperature: state.temperature
       })
     }
   )
 );
-
-export function getActiveConversation(state: ChatState) {
-  return state.conversations.find((conversation) => conversation.id === state.activeConversationId) ?? null;
-}

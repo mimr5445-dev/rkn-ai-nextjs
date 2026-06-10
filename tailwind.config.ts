@@ -1,61 +1,38 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  darkMode: ['class'],
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-sans)', 'Tajawal', 'Inter', 'system-ui', 'sans-serif']
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-serif)', 'Georgia', 'serif']
       },
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
-        primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))'
+        paper: 'hsl(var(--paper))',
+        surface: 'hsl(var(--surface))',
+        sidebar: 'hsl(var(--sidebar))',
+        ink: 'hsl(var(--ink))',
+        subtle: 'hsl(var(--subtle))',
+        line: 'hsl(var(--line))',
+        clay: {
+          DEFAULT: 'hsl(var(--clay))',
+          soft: 'hsl(var(--clay-soft))',
+          ink: 'hsl(var(--clay-ink))'
         },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))'
-        },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))'
-        },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))'
-        },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))'
-        },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))'
-        }
+        userbubble: 'hsl(var(--user-bubble))'
       },
-      boxShadow: {
-        glow: '0 0 60px rgba(99, 102, 241, 0.25)',
-        soft: '0 24px 80px rgba(0, 0, 0, 0.28)'
-      },
+      maxWidth: { thread: '46rem' },
       keyframes: {
-        shimmer: {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100%)' }
-        },
-        pulseSoft: {
-          '0%, 100%': { opacity: '0.55', transform: 'scale(1)' },
-          '50%': { opacity: '1', transform: 'scale(1.04)' }
+        blink: { '0%,100%': { opacity: '0.2' }, '50%': { opacity: '1' } },
+        fadeUp: {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
         }
       },
       animation: {
-        shimmer: 'shimmer 1.6s infinite',
-        pulseSoft: 'pulseSoft 3.5s ease-in-out infinite'
+        blink: 'blink 1.2s ease-in-out infinite',
+        fadeUp: 'fadeUp 0.25s ease-out both'
       }
     }
   },

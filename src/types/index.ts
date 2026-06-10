@@ -1,5 +1,4 @@
-export type Role = 'user' | 'assistant' | 'system';
-
+export type Role = 'user' | 'assistant';
 export type AttachmentKind = 'image' | 'file';
 
 export type Attachment = {
@@ -27,7 +26,6 @@ export type Conversation = {
   messages: Message[];
   createdAt: string;
   updatedAt: string;
-  pinned?: boolean;
 };
 
 export type AgentId = 'general' | 'developer' | 'analyst' | 'creative' | 'teacher';
@@ -37,17 +35,9 @@ export type Agent = {
   name: string;
   description: string;
   systemPrompt: string;
-  tone: string;
 };
 
-export type DeviceMetrics = {
-  innerWidth: number;
-  innerHeight: number;
-  screenWidth: number;
-  screenHeight: number;
-  devicePixelRatio: number;
-  isMobile: boolean;
-};
+export type GeminiModel = 'gemini-2.0-flash' | 'gemini-2.5-flash' | 'gemini-1.5-pro';
 
 export type ChatRequestMessage = Pick<Message, 'role' | 'content' | 'attachments'>;
 
@@ -55,6 +45,7 @@ export type ChatRequest = {
   messages: ChatRequestMessage[];
   conversationId?: string;
   agentId?: AgentId;
+  model?: GeminiModel;
   temperature?: number;
   stream?: boolean;
 };

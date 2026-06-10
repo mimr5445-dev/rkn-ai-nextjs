@@ -11,11 +11,8 @@ export function makeTitle(input: string) {
   return normalized.length > 42 ? `${normalized.slice(0, 42)}…` : normalized;
 }
 
-export function safeJson<T>(value: string | null, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
+export function formatSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
