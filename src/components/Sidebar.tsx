@@ -1,9 +1,9 @@
 'use client';
 
-import { MessageSquare, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { Brain, MessageSquare, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { agents } from '@/lib/agents';
 import { cn } from '@/lib/utils';
-import type { AgentId, Conversation, GeminiModel } from '@/types';
+import type { AgentId, Conversation, GeminiModel, ReasoningLevel } from '@/types';
 
 const MODELS: { value: GeminiModel; label: string }[] = [
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
@@ -11,12 +11,18 @@ const MODELS: { value: GeminiModel; label: string }[] = [
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' }
 ];
 
+function modelSupportsThinking(model: GeminiModel) {
+  return model.startsWith('gemini-2.5');
+}
+
 type SidebarProps = {
   conversations: Conversation[];
   activeConversationId: string | null;
   activeAgentId: AgentId;
   model: GeminiModel;
   temperature: number;
+  thinking: boolean;
+  reasoningLevel: ReasoningLevel;
   isMobile: boolean;
   open: boolean;
   onClose: () => void;
@@ -26,6 +32,8 @@ type SidebarProps = {
   onSelectAgent: (id: AgentId) => void;
   onSelectModel: (model: GeminiModel) => void;
   onTemperatureChange: (value: number) => void;
+  onToggleThinking: (enabled: boolean) => void;
+  onSelectReasoningLevel: (level: ReasoningLevel) => void;
   onOpenSettings: () => void;
 };
 
@@ -36,6 +44,8 @@ function Panel(props: SidebarProps) {
     activeAgentId,
     model,
     temperature,
+    thinking,
+    reasoningLevel,
     isMobile,
     onClose,
     onNewChat,
@@ -44,8 +54,11 @@ function Panel(props: SidebarProps) {
     onSelectAgent,
     onSelectModel,
     onTemperatureChange,
+    onToggleThinking,
+    onSelectReasoningLevel,
     onOpenSettings
   } = props;
+  const thinkingSupported = modelSupportsThinking(model);
 
   return (
     <aside className="flex h-full w-[17rem] shrink-0 flex-col border-l border-line bg-sidebar">
@@ -79,6 +92,39 @@ function Panel(props: SidebarProps) {
             ))}
           </select>
         </label>
+
+        <section className="rounded-xl border border-line bg-surface p-3">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-ink">
+            <Brain className="h-4 w-4 text-clay" />
+            التفكير الموسّع
+          </div>
+          <label className="flex items-center justify-between gap-3 text-sm text-ink">
+            <span>{thinkingSupported ? 'عرض طريقة التفكير' : 'غير متاح لهذا النموذج'}</span>
+            <input
+              type="checkbox"
+              checked={thinkingSupported && thinking}
+              disabled={!thinkingSupported}
+              onChange={(event) => onToggleThinking(event.target.checked)}
+              className="h-4 w-4 accent-clay disabled:opacity-40"
+            />
+          </label>
+          {!thinkingSupported ? (
+            <p className="mt-2 text-xs leading-5 text-subtle">التفكير الموسّع متاح في نماذج Gemini 2.5 فقط.</p>
+          ) : (
+            <label className="mt-2 block space-y-1">
+              <span className="text-xs text-subtle">عمق التفكير</span>
+              <select
+                value={reasoningLevel}
+                disabled={!thinking}
+                onChange={(event) => onSelectReasoningLevel(event.target.value as ReasoningLevel)}
+                className="w-full rounded-lg border border-line bg-paper px-2 py-2 text-sm outline-none focus:border-clay disabled:opacity-60"
+              >
+                <option value="balanced">متوازن</option>
+                <option value="deep">عميق</option>
+              </select>
+            </label>
+          )}
+        </section>
 
         <label className="block space-y-1">
           <span className="text-xs font-medium text-subtle">الوكيل</span>
@@ -122,7 +168,7 @@ function Panel(props: SidebarProps) {
               key={conversation.id}
               className={cn(
                 'group mb-0.5 flex items-center gap-1 rounded-lg px-2 py-2 text-sm transition',
-                activeConversationId === conversation.id ? 'bg-paper text-ink' : 'text-subtle hover:bg-paper/70'
+                activeConversationId === conversation.id ? 'bg-paper text-ink' : 'text-subtle hover:bg-paper'
               )}
             >
               <button onClick={() => onSelectConversation(conversation.id)} className="flex min-w-0 flex-1 items-center gap-2 text-right">
@@ -155,7 +201,7 @@ export function Sidebar(props: SidebarProps) {
   if (!props.open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <button className="absolute inset-0 bg-black/30" aria-label="إغلاق" onClick={props.onClose} />
+      <button className="absolute inset-0 bg-black" style={{ opacity: 0.3 }} aria-label="إغلاق" onClick={props.onClose} />
       <div className="absolute right-0 top-0 h-full">
         <Panel {...props} />
       </div>

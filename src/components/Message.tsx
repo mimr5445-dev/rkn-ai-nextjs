@@ -3,6 +3,7 @@
 import { Check, Copy, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { Markdown } from '@/components/Markdown';
+import { ThinkingPanel } from '@/components/ThinkingPanel';
 import { cn, formatSize } from '@/lib/utils';
 import type { Attachment, Message as MessageType } from '@/types';
 
@@ -39,6 +40,9 @@ function AttachmentChip({ attachment }: { attachment: Attachment }) {
 export function Message({ message }: { message: MessageType }) {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const hasReasoning = Boolean(message.reasoning?.trim());
+  const liveThinking = Boolean(message.pending && !message.content && hasReasoning);
+
   const copy = async () => {
     await navigator.clipboard.writeText(message.content);
     setCopied(true);
@@ -68,17 +72,21 @@ export function Message({ message }: { message: MessageType }) {
 
   return (
     <div className="group animate-fadeUp">
-      {message.pending && !message.content ? (
+      {hasReasoning && (
+        <ThinkingPanel reasoning={message.reasoning ?? ''} live={liveThinking} thinkingMs={message.thinkingMs} />
+      )}
+
+      {message.pending && !message.content && !hasReasoning ? (
         <div className="flex items-center gap-1 py-1 text-subtle">
           <span className="h-2 w-2 animate-blink rounded-full bg-clay" />
           <span className="h-2 w-2 animate-blink rounded-full bg-clay [animation-delay:200ms]" />
           <span className="h-2 w-2 animate-blink rounded-full bg-clay [animation-delay:400ms]" />
         </div>
-      ) : (
+      ) : message.content ? (
         <div className={cn(message.error && 'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700')}>
           <Markdown content={message.content} />
         </div>
-      )}
+      ) : null}
 
       {!message.pending && message.content && !message.error && (
         <button

@@ -28,7 +28,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
       <button
         type="button"
         onClick={copy}
-        className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-line bg-surface/80 px-2 py-1 text-xs text-subtle backdrop-blur hover:text-ink"
+        className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-subtle hover:text-ink"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         {copied ? 'نُسخ' : 'نسخ'}

@@ -94,7 +94,7 @@ export function Composer({ disabled, onSend }: ComposerProps) {
     <div className="px-4 pb-4 md:px-6">
       <form
         onSubmit={submit}
-        className="mx-auto w-full max-w-thread rounded-[1.6rem] border border-line bg-surface p-2 shadow-[0_2px_16px_rgba(0,0,0,0.06)] transition focus-within:border-clay/40"
+        className="mx-auto w-full max-w-thread rounded-[1.6rem] border border-line bg-surface p-2 shadow-[0_2px_16px_rgba(0,0,0,0.06)] transition focus-within:border-clay"
       >
         {attachments.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2 px-1">

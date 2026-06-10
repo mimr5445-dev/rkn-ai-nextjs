@@ -20,7 +20,7 @@ export function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void })
               key={item.text}
               type="button"
               onClick={() => onPrompt(item.text)}
-              className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-right text-sm text-ink transition hover:border-clay/40 hover:bg-clay-soft"
+              className="flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-right text-sm text-ink transition hover:border-clay hover:bg-clay-soft"
             >
               <item.icon className="h-4 w-4 shrink-0 text-clay" />
               <span>{item.text}</span>

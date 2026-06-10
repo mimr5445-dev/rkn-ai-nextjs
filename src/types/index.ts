@@ -1,5 +1,6 @@
 export type Role = 'user' | 'assistant';
 export type AttachmentKind = 'image' | 'file';
+export type ReasoningLevel = 'balanced' | 'deep';
 
 export type Attachment = {
   id: string;
@@ -16,6 +17,8 @@ export type Message = {
   content: string;
   createdAt: string;
   attachments?: Attachment[];
+  reasoning?: string;
+  thinkingMs?: number;
   pending?: boolean;
   error?: boolean;
 };
@@ -48,10 +51,15 @@ export type ChatRequest = {
   model?: GeminiModel;
   temperature?: number;
   stream?: boolean;
+  thinking?: boolean;
+  reasoningLevel?: ReasoningLevel;
 };
 
 export type ChatResponse = {
   message: string;
+  reasoning?: string;
   model: string;
   usage?: unknown;
 };
+
+export type StreamEvent = { t: 'think' | 'text'; c: string };

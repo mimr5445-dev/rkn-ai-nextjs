@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { MessageList } from '@/components/MessageList';
 import { Sidebar } from '@/components/Sidebar';
 import { useChatStore } from '@/store/chat-store';
-import type { Attachment } from '@/types';
+import type { Attachment, StreamEvent } from '@/types';
 
 export function ChatApp() {
   const [isMobile, setIsMobile] = useState(false);
@@ -18,6 +18,8 @@ export function ChatApp() {
   const activeAgentId = useChatStore((state) => state.activeAgentId);
   const model = useChatStore((state) => state.model);
   const temperature = useChatStore((state) => state.temperature);
+  const thinking = useChatStore((state) => state.thinking);
+  const reasoningLevel = useChatStore((state) => state.reasoningLevel);
   const sidebarOpen = useChatStore((state) => state.sidebarOpen);
   const isLoading = useChatStore((state) => state.isLoading);
 
@@ -27,10 +29,13 @@ export function ChatApp() {
   const addMessage = useChatStore((state) => state.addMessage);
   const updateMessage = useChatStore((state) => state.updateMessage);
   const appendToMessage = useChatStore((state) => state.appendToMessage);
+  const appendToReasoning = useChatStore((state) => state.appendToReasoning);
   const clearAll = useChatStore((state) => state.clearAll);
   const setActiveAgent = useChatStore((state) => state.setActiveAgent);
   const setModel = useChatStore((state) => state.setModel);
   const setTemperature = useChatStore((state) => state.setTemperature);
+  const setThinking = useChatStore((state) => state.setThinking);
+  const setReasoningLevel = useChatStore((state) => state.setReasoningLevel);
   const setSidebarOpen = useChatStore((state) => state.setSidebarOpen);
   const setIsLoading = useChatStore((state) => state.setIsLoading);
 
@@ -57,8 +62,11 @@ export function ChatApp() {
     const history = useChatStore.getState().conversations.find((conversation) => conversation.id === targetId)?.messages ?? [];
 
     addMessage(targetId, { role: 'user', content: text, attachments });
-    const assistant = addMessage(targetId, { role: 'assistant', content: '', pending: true });
+    const assistant = addMessage(targetId, { role: 'assistant', content: '', reasoning: '', pending: true });
     setIsLoading(true);
+
+    const startedAt = Date.now();
+    let sawFirstText = false;
 
     try {
       const response = await fetch('/api/chat', {
@@ -69,6 +77,8 @@ export function ChatApp() {
           agentId: activeAgentId,
           model,
           temperature,
+          thinking,
+          reasoningLevel,
           stream: true,
           messages: [
             ...history.map(({ role, content, attachments }) => ({ role, content, attachments })),
@@ -84,17 +94,45 @@ export function ChatApp() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let accumulated = '';
+      let buffer = '';
+      let accumulatedText = '';
+
+      const consumeLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let event: StreamEvent;
+        try {
+          event = JSON.parse(trimmed) as StreamEvent;
+        } catch {
+          return;
+        }
+        if (!event.c) return;
+
+        if (event.t === 'think') {
+          appendToReasoning(targetId, assistant.id, event.c);
+          return;
+        }
+
+        if (!sawFirstText) {
+          sawFirstText = true;
+          updateMessage(targetId, assistant.id, { thinkingMs: Date.now() - startedAt });
+        }
+        accumulatedText += event.c;
+        appendToMessage(targetId, assistant.id, event.c);
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        accumulated += chunk;
-        appendToMessage(targetId, assistant.id, chunk);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) consumeLine(line);
       }
 
-      if (!accumulated.trim()) {
+      if (buffer.trim()) consumeLine(buffer);
+
+      if (!accumulatedText.trim()) {
         updateMessage(targetId, assistant.id, { content: 'لم يرد Gemini بأي محتوى.', pending: false, error: true });
       } else {
         updateMessage(targetId, assistant.id, { pending: false });
@@ -130,6 +168,8 @@ export function ChatApp() {
           activeAgentId={activeAgentId}
           model={model}
           temperature={temperature}
+          thinking={thinking}
+          reasoningLevel={reasoningLevel}
           isMobile={false}
           open
           onClose={() => setSidebarOpen(false)}
@@ -139,6 +179,8 @@ export function ChatApp() {
           onSelectAgent={setActiveAgent}
           onSelectModel={setModel}
           onTemperatureChange={setTemperature}
+          onToggleThinking={setThinking}
+          onSelectReasoningLevel={setReasoningLevel}
           onOpenSettings={onSettings}
         />
       )}
@@ -176,6 +218,8 @@ export function ChatApp() {
           activeAgentId={activeAgentId}
           model={model}
           temperature={temperature}
+          thinking={thinking}
+          reasoningLevel={reasoningLevel}
           isMobile
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -185,6 +229,8 @@ export function ChatApp() {
           onSelectAgent={setActiveAgent}
           onSelectModel={setModel}
           onTemperatureChange={setTemperature}
+          onToggleThinking={setThinking}
+          onSelectReasoningLevel={setReasoningLevel}
           onOpenSettings={onSettings}
         />
       )}

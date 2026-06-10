@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { v4 as uuid } from 'uuid';
 import { makeTitle } from '@/lib/utils';
-import type { AgentId, Conversation, GeminiModel, Message } from '@/types';
+import type { AgentId, Conversation, GeminiModel, Message, ReasoningLevel } from '@/types';
 
 type ChatState = {
   conversations: Conversation[];
@@ -12,6 +12,8 @@ type ChatState = {
   activeAgentId: AgentId;
   model: GeminiModel;
   temperature: number;
+  thinking: boolean;
+  reasoningLevel: ReasoningLevel;
   sidebarOpen: boolean;
   isLoading: boolean;
   createConversation: () => string;
@@ -20,10 +22,13 @@ type ChatState = {
   addMessage: (conversationId: string, message: Omit<Message, 'id' | 'createdAt'> & Partial<Pick<Message, 'id' | 'createdAt'>>) => Message;
   updateMessage: (conversationId: string, messageId: string, patch: Partial<Message>) => void;
   appendToMessage: (conversationId: string, messageId: string, delta: string) => void;
+  appendToReasoning: (conversationId: string, messageId: string, delta: string) => void;
   clearAll: () => void;
   setActiveAgent: (agentId: AgentId) => void;
   setModel: (model: GeminiModel) => void;
   setTemperature: (temperature: number) => void;
+  setThinking: (thinking: boolean) => void;
+  setReasoningLevel: (level: ReasoningLevel) => void;
   setSidebarOpen: (open: boolean) => void;
   setIsLoading: (loading: boolean) => void;
 };
@@ -54,6 +59,8 @@ export const useChatStore = create<ChatState>()(
       activeAgentId: 'general',
       model: 'gemini-2.5-flash',
       temperature: 0.7,
+      thinking: true,
+      reasoningLevel: 'balanced',
       sidebarOpen: false,
       isLoading: false,
       createConversation: () => {
@@ -79,6 +86,8 @@ export const useChatStore = create<ChatState>()(
           role: message.role,
           content: message.content,
           attachments: message.attachments,
+          reasoning: message.reasoning,
+          thinkingMs: message.thinkingMs,
           pending: message.pending,
           error: message.error
         };
@@ -122,10 +131,28 @@ export const useChatStore = create<ChatState>()(
               : conversation
           )
         })),
+      appendToReasoning: (conversationId, messageId, delta) =>
+        set((state) => ({
+          conversations: state.conversations.map((conversation) =>
+            conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  messages: conversation.messages.map((message) =>
+                    message.id === messageId
+                      ? { ...message, reasoning: `${message.reasoning ?? ''}${delta}`, pending: true }
+                      : message
+                  ),
+                  updatedAt: now()
+                }
+              : conversation
+          )
+        })),
       clearAll: () => set({ conversations: [], activeConversationId: null, sidebarOpen: false }),
       setActiveAgent: (agentId) => set({ activeAgentId: agentId }),
       setModel: (model) => set({ model }),
       setTemperature: (temperature) => set({ temperature }),
+      setThinking: (thinking) => set({ thinking }),
+      setReasoningLevel: (reasoningLevel) => set({ reasoningLevel }),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       setIsLoading: (loading) => set({ isLoading: loading })
     }),
@@ -137,7 +164,9 @@ export const useChatStore = create<ChatState>()(
         activeConversationId: state.activeConversationId,
         activeAgentId: state.activeAgentId,
         model: state.model,
-        temperature: state.temperature
+        temperature: state.temperature,
+        thinking: state.thinking,
+        reasoningLevel: state.reasoningLevel
       })
     }
   )

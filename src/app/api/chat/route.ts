@@ -17,11 +17,13 @@ export async function POST(request: Request) {
         messages: body.messages,
         agentId: body.agentId,
         model: body.model,
-        temperature: body.temperature
+        temperature: body.temperature,
+        thinking: body.thinking,
+        reasoningLevel: body.reasoningLevel
       });
       return new Response(stream, {
         headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
           'Cache-Control': 'no-cache, no-transform',
           'X-Accel-Buffering': 'no'
         }
@@ -32,7 +34,9 @@ export async function POST(request: Request) {
       messages: body.messages,
       agentId: body.agentId,
       model: body.model,
-      temperature: body.temperature
+      temperature: body.temperature,
+      thinking: body.thinking,
+      reasoningLevel: body.reasoningLevel
     });
     return NextResponse.json(response);
   } catch (error) {
